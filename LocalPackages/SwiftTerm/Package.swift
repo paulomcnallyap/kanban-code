@@ -80,7 +80,7 @@ let targets: [Target] = [
         path: "Sources/SwiftTerm",
         exclude: platformExcludes + ["Mac/README.md"],
         resources: [
-            .process("Apple/Metal/Shaders.metal")
+            .copy("Apple/Metal/Shaders.metal")
         ]
 //        swiftSettings: [
 //            .unsafeFlags(["-enforce-exclusivity=none"])

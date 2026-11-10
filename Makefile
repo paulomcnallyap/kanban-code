@@ -179,3 +179,10 @@ ios-autoinstall:
 ios-autoinstall-remove:
 	@launchctl bootout gui/$$(id -u)/$(IOS_AGENT) 2>/dev/null || true
 	@/bin/rm -f $(IOS_AGENT_PLIST)
+
+# Build sin Xcode (solo Command Line Tools): SDK 26.5 (el 27.x pide el plugin
+# SwiftUIMacros que solo trae Xcode), pnpm vía npx (Node 25+ sin corepack) y la
+# carpeta de productos del nuevo build system de SwiftPM.
+CLT_SDK ?= /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+app-clt:
+	SDKROOT=$(CLT_SDK) $(MAKE) app CONFIG=release PNPM="npx -y pnpm@10.30.3" BUILD_DIR=.build/out/Products/Release
