@@ -109,6 +109,27 @@ public struct PRLink: Codable, Sendable, Equatable {
 }
 
 /// Link to a GitHub issue.
+/// Tarjeta del Backlog de Notion (fork de Paulo). Solo lectura: el Estado
+/// lo manda Notion; la sesión de Claude se vincula por la propiedad
+/// «Sesión Claude» de la tarjeta.
+public struct NotionLink: Codable, Sendable, Equatable {
+    public var pageId: String
+    public var url: String
+    public var title: String
+    /// Estado en Notion: Backlog · En proceso · En revisión · Bloqueado · Terminado.
+    public var estado: String?
+    /// Id de la sesión de Claude escrita en «Sesión Claude», si la hay.
+    public var sessionId: String?
+
+    public init(pageId: String, url: String, title: String, estado: String?, sessionId: String?) {
+        self.pageId = pageId
+        self.url = url
+        self.title = title
+        self.estado = estado
+        self.sessionId = sessionId
+    }
+}
+
 public struct IssueLink: Codable, Sendable, Equatable {
     public var number: Int
     public var url: String?
@@ -224,6 +245,7 @@ public struct Link: Identifiable, Codable, Sendable, Equatable {
     public var worktreeLink: WorktreeLink?
     public var prLinks: [PRLink]
     public var issueLink: IssueLink?
+    public var notionLink: NotionLink? = nil
     public var queuedPrompts: [QueuedPrompt]?
     public var browserTabs: [BrowserTabInfo]?
 
@@ -339,6 +361,7 @@ public struct Link: Identifiable, Codable, Sendable, Equatable {
             || remote != nil
             || worktreeLink != nil
             || issueLink != nil
+            || notionLink != nil
             || !prLinks.isEmpty
     }
 
@@ -358,6 +381,7 @@ public struct Link: Identifiable, Codable, Sendable, Equatable {
             && !isPinned
             && remote == nil
             && issueLink == nil
+            && notionLink == nil
             && prLinks.isEmpty
             && promptBody == nil
             && (queuedPrompts ?? []).isEmpty
@@ -546,7 +570,7 @@ public struct Link: Identifiable, Codable, Sendable, Equatable {
         case discoveredBranches, discoveredRepos, assistant, apiServiceId, headless
         case ownerMachine, rev, ownerRev, fieldRevs, migrating, deletedAt
         // Typed links (new nested format)
-        case sessionLink, tmuxLink, worktreeLink, prLinks, issueLink, queuedPrompts, browserTabs
+        case sessionLink, tmuxLink, worktreeLink, prLinks, issueLink, notionLink, queuedPrompts, browserTabs
         // Old format keys (for reading legacy format)
         case prLink
         case sessionId, sessionPath, worktreePath, worktreeBranch
@@ -636,6 +660,8 @@ public struct Link: Identifiable, Codable, Sendable, Equatable {
             prLinks = []
         }
 
+        notionLink = try c.decodeIfPresent(NotionLink.self, forKey: .notionLink)
+
         // Issue link
         if let il = try c.decodeIfPresent(IssueLink.self, forKey: .issueLink) {
             issueLink = il
@@ -707,6 +733,7 @@ public struct Link: Identifiable, Codable, Sendable, Equatable {
             try c.encode(prLinks, forKey: .prLinks)
         }
         try c.encodeIfPresent(issueLink, forKey: .issueLink)
+        try c.encodeIfPresent(notionLink, forKey: .notionLink)
         try c.encodeIfPresent(queuedPrompts, forKey: .queuedPrompts)
         try c.encodeIfPresent(browserTabs, forKey: .browserTabs)
     }
@@ -781,6 +808,7 @@ public enum LinkSource: String, Codable, Sendable {
     case discovered // Found via session scanning
     case hook // Created via Claude hook event
     case githubIssue = "github_issue" // Created from a GitHub issue
+    case notion // Tarjeta del Backlog de Notion
     case manual // User-created task
 }
 

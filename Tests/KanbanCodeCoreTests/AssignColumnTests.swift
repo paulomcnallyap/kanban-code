@@ -91,18 +91,19 @@ struct AssignColumnTests {
         #expect(col == .done)
     }
 
-    @Test("PR exists + idle → inReview")
+    // Fork de Paulo: In Review es «Bloqueadas» (solo Notion); la sesión suelta con PR va a Esperando.
+    @Test("PR exists + idle → waiting (fork)")
     func prExistsIdle() {
         let link = Link(sessionLink: SessionLink(sessionId: "s1"))
         let col = AssignColumn.assign(link: link, activityState: .idleWaiting, hasPR: true)
-        #expect(col == .inReview)
+        #expect(col == .waiting)
     }
 
-    @Test("PR exists + needsAttention → inReview (skips waiting for review workflow)")
+    @Test("PR exists + needsAttention → waiting (fork)")
     func prExistsNeedsAttention() {
         let link = Link(sessionLink: SessionLink(sessionId: "s1"))
         let col = AssignColumn.assign(link: link, activityState: .needsAttention, hasPR: true)
-        #expect(col == .inReview)
+        #expect(col == .waiting)
     }
 
     @Test("PR exists + actively working → inProgress (not inReview)")

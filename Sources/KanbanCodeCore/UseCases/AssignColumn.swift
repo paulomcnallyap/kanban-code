@@ -15,6 +15,46 @@ public enum AssignColumn {
         hasWorktree: Bool = false,
         hasLiveSession: Bool = false
     ) -> KanbanCodeColumn {
+        // Fork de Paulo: las tarjetas de Notion siguen su propia regla.
+        if let notion = link.notionLink, !link.isUnclaimedHeadless {
+            return assignNotion(notion, activityState: activityState)
+        }
+        let column = assignDefault(
+            link: link, activityState: activityState, hasPR: hasPR,
+            allPRsDone: allPRsDone, hasWorktree: hasWorktree, hasLiveSession: hasLiveSession
+        )
+        // «In Review» ahora es «Bloqueadas» (solo Notion): una sesión suelta
+        // con PR abierto queda en Esperando.
+        return column == .inReview ? .waiting : column
+    }
+
+    /// Tarjeta de Notion:
+    /// - su sesión trabajando ahora → En progreso (aunque Notion diga otra cosa);
+    /// - su sesión pausada esperándote → Esperando;
+    /// - sin sesión o con la sesión cerrada → lo que diga el Estado en Notion.
+    public static func assignNotion(_ notion: NotionLink, activityState: ActivityState?) -> KanbanCodeColumn {
+        switch activityState {
+        case .activelyWorking: return .inProgress
+        case .needsAttention, .idleWaiting: return .waiting
+        default: break
+        }
+        switch notion.estado {
+        case "Bloqueado": return .inReview
+        case "En proceso": return .inProgress
+        case "En revisión": return .waiting
+        case "Terminado": return .done
+        default: return .backlog
+        }
+    }
+
+    static func assignDefault(
+        link: Link,
+        activityState: ActivityState? = nil,
+        hasPR: Bool = false,
+        allPRsDone: Bool = false,
+        hasWorktree: Bool = false,
+        hasLiveSession: Bool = false
+    ) -> KanbanCodeColumn {
         // A headless run (`claude -p` from a script) that no card claims is
         // reachable in All Sessions only, whatever its activity says.
         if link.isUnclaimedHeadless {

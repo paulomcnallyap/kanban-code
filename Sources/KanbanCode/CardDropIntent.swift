@@ -15,6 +15,14 @@ enum CardDropIntent: Equatable {
     }
 
     static func resolve(_ card: KanbanCodeCard, to column: KanbanCodeColumn) -> CardDropIntent {
+        // Fork de Paulo: el Estado de las tarjetas de Notion se cambia en Notion.
+        // Lo único que se permite es retomar su sesión arrastrándola a En progreso.
+        if card.link.notionLink != nil {
+            if column == .inProgress, card.link.sessionLink != nil, card.link.tmuxLink == nil {
+                return .resume
+            }
+            return .invalid("El Estado de esta tarjeta se cambia en Notion")
+        }
         switch column {
         case .inProgress:
             if card.link.tmuxLink != nil {

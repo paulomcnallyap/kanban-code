@@ -351,6 +351,12 @@ struct CardActionCatalog {
                 kind: .perform { if let url { environment.open(url) } }
             ))
         }
+        if let notion = card.link.notionLink, let url = URL(string: notion.url) {
+            items.append(CardActionItem(
+                id: "open.notion", title: "Abrir en Notion", icon: "arrow.up.right.square",
+                kind: .perform { environment.open(url) }
+            ))
+        }
         if let issue = card.link.issueLink {
             let url = issueURL(issue).flatMap(URL.init(string:))
             items.append(CardActionItem(

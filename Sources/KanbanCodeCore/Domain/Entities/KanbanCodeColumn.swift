@@ -11,12 +11,14 @@ public enum KanbanCodeColumn: String, Codable, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
+        // Fork de Paulo: columnas del Backlog de Notion. `inReview` se reutiliza
+        // como «Bloqueadas» (Estado = Bloqueado en Notion).
         case .backlog: "Backlog"
-        case .inProgress: "In Progress"
-        case .waiting: "Waiting"
-        case .inReview: "In Review"
-        case .done: "Done"
-        case .allSessions: "All Sessions"
+        case .inProgress: "En progreso"
+        case .waiting: "Esperando"
+        case .inReview: "Bloqueadas"
+        case .done: "Terminadas"
+        case .allSessions: "Todas las sesiones"
         }
     }
 

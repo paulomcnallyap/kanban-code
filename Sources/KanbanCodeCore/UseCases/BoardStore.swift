@@ -187,6 +187,7 @@ public final class AppState: @unchecked Sendable {
 
     /// Last time GitHub issues were fetched.
     public var lastGitHubRefresh: Date?
+    public var lastNotionRefresh: Date?
     /// Whether a GitHub issue refresh is currently running.
     public var isRefreshingBacklog = false
 
@@ -655,7 +656,7 @@ public final class AppState: @unchecked Sendable {
         }
         if newByColumn != cardsByColumn { cardsByColumn = newByColumn }
 
-        let alwaysVisible: [KanbanCodeColumn] = [.backlog, .inProgress, .waiting, .inReview, .done]
+        let alwaysVisible: [KanbanCodeColumn] = [.backlog, .inReview, .inProgress, .waiting, .done]
         var newVisible = alwaysVisible
         if (newByColumn[.allSessions]?.count ?? 0) > 0 { newVisible.append(.allSessions) }
         if newVisible != visibleColumns { visibleColumns = newVisible }
@@ -825,6 +826,8 @@ public enum Action: Sendable {
     /// One rush host's queue, read after acting on it.
     case rushQueueRead(sessionName: String, queue: [String])
     case gitHubIssuesUpdated(links: [Link])
+    /// Fork de Paulo: tarjetas del Backlog de Notion (altas/cambios y bajas).
+    case notionTasksUpdated(upserts: [Link], removedIds: [String])
     case activityChanged([String: ActivityState]) // sessionId → state
 
     // Busy state (transient spinners)
@@ -2922,6 +2925,16 @@ public enum Reducer {
             state.lastGitHubRefresh = Date()
             return [.persistLinks(Array(state.links.values))]
 
+        case .notionTasksUpdated(let upserts, let removedIds):
+            for link in upserts {
+                // No pisar tarjetas que se están lanzando o retomando.
+                if state.links[link.id]?.isLaunching == true { continue }
+                state.links[link.id] = link
+            }
+            for id in removedIds { state.links.removeValue(forKey: id) }
+            state.lastNotionRefresh = Date()
+            return [.persistLinks(Array(state.links.values))]
+
         case .activityChanged(let activityMap):
             // Lightweight column update — no full reconciliation, just activity → column
             var changed = false
@@ -3901,6 +3914,10 @@ public final class BoardStore: @unchecked Sendable {
             await refreshGitHubIssuesIfNeeded()
             KanbanCodeLog.info("reconcile", "gitHubIssues: \(t6.duration(to: .now))")
 
+            let t7 = ContinuousClock.now
+            await refreshNotionIfNeeded()
+            KanbanCodeLog.info("reconcile", "notion: \(t7.duration(to: .now))")
+
             KanbanCodeLog.info("reconcile", "TOTAL: \(reconcileStart.duration(to: .now))")
         } catch {
             KanbanCodeLog.info("reconcile", "FAILED after \(reconcileStart.duration(to: .now)): \(error)")
@@ -4244,6 +4261,41 @@ public final class BoardStore: @unchecked Sendable {
             dispatch(.gitHubIssuesUpdated(links: links))
         } else {
             state.lastGitHubRefresh = Date()
+        }
+    }
+
+    // MARK: - Notion (fork de Paulo)
+
+    private func refreshNotionIfNeeded() async {
+        guard let config = NotionConfig.load() else { return }
+        let interval = TimeInterval(config.pollSeconds ?? 60)
+        if let last = state.lastNotionRefresh, Date.now.timeIntervalSince(last) < interval { return }
+        await refreshNotion(config: config)
+    }
+
+    public func refreshNotionNow() async {
+        guard let config = NotionConfig.load() else { return }
+        await refreshNotion(config: config)
+    }
+
+    private func refreshNotion(config: NotionConfig) async {
+        let tasks: [NotionTask]
+        do {
+            tasks = try await NotionAdapter(config: config).fetchTasks()
+        } catch {
+            KanbanCodeLog.info("notion", "fetch failed: \(error)")
+            state.lastNotionRefresh = Date()  // reintentar en el próximo ciclo, sin martillar
+            dispatch(.setError(error.localizedDescription))
+            return
+        }
+        let plan = NotionBoardSync.plan(
+            tasks: tasks, links: state.links, activityMap: state.activityMap
+        )
+        KanbanCodeLog.info("notion", "tasks=\(tasks.count) upserts=\(plan.upserts.count) removed=\(plan.removedIds.count)")
+        if plan.upserts.isEmpty && plan.removedIds.isEmpty {
+            state.lastNotionRefresh = Date()
+        } else {
+            dispatch(.notionTasksUpdated(upserts: plan.upserts, removedIds: plan.removedIds))
         }
     }
 }
