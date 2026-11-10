@@ -24,6 +24,8 @@ struct NotionBoardTests {
         #expect(AssignColumn.assignNotion(notion("Bloqueado"), activityState: .activelyWorking) == .inProgress)
         #expect(AssignColumn.assignNotion(notion("Backlog"), activityState: .needsAttention) == .waiting)
         #expect(AssignColumn.assignNotion(notion("Terminado"), activityState: .ended) == .done)
+        #expect(AssignColumn.assignNotion(notion("Terminado"), activityState: .needsAttention) == .done)
+        #expect(AssignColumn.assignNotion(notion("Terminado"), activityState: .activelyWorking) == .done)
     }
 
     @Test("Una sesión suelta con PR va a Esperando, no a Bloqueadas")

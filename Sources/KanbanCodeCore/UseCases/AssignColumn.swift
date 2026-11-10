@@ -29,10 +29,13 @@ public enum AssignColumn {
     }
 
     /// Tarjeta de Notion:
+    /// - Terminado en Notion → Terminadas, siempre;
     /// - su sesión trabajando ahora → En progreso (aunque Notion diga otra cosa);
     /// - su sesión pausada esperándote → Esperando;
     /// - sin sesión o con la sesión cerrada → lo que diga el Estado en Notion.
     public static func assignNotion(_ notion: NotionLink, activityState: ActivityState?) -> KanbanCodeColumn {
+        // Terminado en Notion manda siempre, aunque la sesión siga abierta.
+        if notion.estado == "Terminado" { return .done }
         switch activityState {
         case .activelyWorking: return .inProgress
         case .needsAttention, .idleWaiting: return .waiting
